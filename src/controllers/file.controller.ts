@@ -27,7 +27,7 @@ interface FileUploadResponse {
 export class FileController {
   constructor(private fileService: FileService) {}
 
-  @Post('upload')
+  @Post('/upload')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
@@ -73,5 +73,10 @@ export class FileController {
   @Role('admin')
   async getFiles(): Promise<FileObject[]> {
     return this.fileService.getFiles();
+  }
+
+  @Post('/upload-test')
+  testUpload(): { success: boolean } {
+    return { success: true };
   }
 }
