@@ -1,9 +1,16 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FileObject } from '@supabase/storage-js';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import * as Papa from 'papaparse';
 import * as pdfParse from 'pdf-parse';
 import { createWorker } from 'tesseract.js';
+import * as XLSX from 'xlsx';
 
 @Injectable()
 export class FileService {
@@ -103,7 +110,7 @@ export class FileService {
 
         const pdfData = await pdfParse(buffer);
 
-        console.log(pdfData.text);
+        console.log('pdfData', pdfData.text);
 
         return pdfData.text;
       }
@@ -113,28 +120,45 @@ export class FileService {
         const buffer = Buffer.from(arrayBuffer);
         const base64Image = buffer.toString('base64');
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
         const worker = await createWorker();
 
         try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           const {
             data: { text },
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           } = await worker.recognize(`data:${data.type};base64,${base64Image}`);
 
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           await worker.terminate();
 
           console.log('OCR text:', text);
 
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return text;
         } catch (ocrError) {
           console.error('OCR Error:', ocrError);
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+
           await worker.terminate();
           return 'OCR processing failed';
+        }
+      }
+
+      if (
+        data.type === 'text/csv' ||
+        data.type === 'application/vnd.ms-excel' ||
+        data.type ===
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      ) {
+        const arrayBuffer = await data.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        if (data.type === 'text/csv') {
+          const textData = buffer.toString('utf8');
+          console.log('textData csv', textData);
+
+          return this.parseCSV(textData);
+        } else {
+          const textData = this.parseExcel(buffer);
+          console.log('textData xlsx', textData);
+
+          return textData;
         }
       }
 
@@ -142,6 +166,48 @@ export class FileService {
     } catch (error) {
       console.error('File extraction error:', error);
       return 'Failed to extract file';
+    }
+  }
+
+  private async parseCSV(csvData: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      Papa.parse(csvData, {
+        complete: (results: { errors: string | any[]; data: any[] }) => {
+          if (results.errors.length > 0) {
+            console.error('CSV parsing errors:', results.errors);
+
+            reject(new Error('CSV parsing errors occurred'));
+            return;
+          }
+
+          const formatted = results.data
+
+            .map((row: any) => row.join(','))
+            .join('\n');
+
+          resolve(formatted);
+        },
+        error: (error: Error) => {
+          console.error('CSV parse error:', error);
+
+          reject(new Error('Failed to parse CSV file'));
+        },
+      });
+    });
+  }
+
+  private parseExcel(buffer: Buffer): string {
+    try {
+      const workbook = XLSX.read(buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+
+      const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+      return data.map((row: any) => row.join(',')).join('\n');
+    } catch (error) {
+      console.error('Excel parse error:', error);
+      throw new Error('Failed to parse Excel file');
     }
   }
 }
