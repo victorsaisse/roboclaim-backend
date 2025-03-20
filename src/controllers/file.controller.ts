@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Delete,
   Get,
@@ -80,5 +81,28 @@ export class FileController {
   @Role('admin')
   async getFiles(): Promise<FileObject[]> {
     return this.fileService.getFiles();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('extract')
+  extract(
+    @Body('filePath') filePath: string,
+    @Body('userId') userId: string,
+  ): { success: boolean; message: string } {
+    void this.backgroundProcess(filePath, userId);
+
+    return {
+      success: true,
+      message: 'Extraction started',
+    };
+  }
+
+  private async backgroundProcess(
+    filePath: string,
+    userId: string,
+  ): Promise<void> {
+    await this.fileService.extractData(filePath, userId);
+
+    return;
   }
 }

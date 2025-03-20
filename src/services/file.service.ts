@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FileObject } from '@supabase/storage-js';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import * as pdfParse from 'pdf-parse';
 
 @Injectable()
 export class FileService {
@@ -81,5 +82,36 @@ export class FileService {
     }
 
     return data;
+  }
+
+  async extractData(filePath: string, userId: string): Promise<string> {
+    console.log('extractData', filePath, userId);
+
+    try {
+      const { data, error } = await this.supabase.storage
+        .from(this.bucketName)
+        .download(filePath);
+
+      if (error || !data) {
+        console.error('Error downloading file:', error);
+        return 'File download failed';
+      }
+
+      if (data.type === 'application/pdf') {
+        const arrayBuffer = await data.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        const pdfData = await pdfParse(buffer);
+
+        console.log(pdfData.text);
+
+        return pdfData.text;
+      }
+
+      return 'Unsupported file type';
+    } catch (error) {
+      console.error('PDF processing error:', error);
+      return 'Failed to process PDF';
+    }
   }
 }
