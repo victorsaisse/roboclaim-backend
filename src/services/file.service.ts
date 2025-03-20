@@ -25,13 +25,12 @@ export class FileService {
     filePath: string,
   ): Promise<{ url: string; path: string } | null> {
     try {
-      const fileBody = new File([file.buffer], file.originalname, {
-        type: file.mimetype,
-      });
-
       const { data, error } = await this.supabase.storage
         .from(this.bucketName)
-        .upload(filePath, fileBody);
+        .upload(filePath, file.buffer, {
+          contentType: file.mimetype,
+          upsert: true,
+        });
 
       if (error || !data) {
         console.error('Error uploading file to Supabase:', error);
