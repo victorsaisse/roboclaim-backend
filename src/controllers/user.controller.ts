@@ -32,21 +32,21 @@ export class UserController {
 
   @Public()
   @Get('wait')
-  async wait(
-    @Query('seconds') seconds: number,
-    @Query('name') name: string,
-  ): Promise<string> {
+  wait(@Query('seconds') seconds: number, @Query('name') name: string): string {
+    this.backgroundProcess(seconds, name);
+
+    return `Started processing for ${name}, will run for ${seconds} seconds`;
+  }
+
+  private backgroundProcess(seconds: number, name: string): void {
     let elapsedSeconds = 0;
-    await new Promise((resolve) => {
-      const interval = setInterval(() => {
-        elapsedSeconds++;
-        console.log(`Waited ${elapsedSeconds} seconds for ${name}`);
-        if (elapsedSeconds >= seconds) {
-          clearInterval(interval);
-          resolve(null);
-        }
-      }, 1000);
-    });
-    return `Waited ${seconds} seconds`;
+    const interval = setInterval(() => {
+      elapsedSeconds++;
+      console.log(`Waited ${elapsedSeconds} seconds for ${name}`);
+      if (elapsedSeconds >= seconds) {
+        clearInterval(interval);
+        console.log(`Completed processing for ${name}`);
+      }
+    }, 1000);
   }
 }
