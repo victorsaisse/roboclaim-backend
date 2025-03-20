@@ -6,6 +6,7 @@ import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/guards/roles.guard';
 import { AuthModule } from 'src/modules/auth.module';
 import { UserModule } from 'src/modules/user.module';
+import { FileModule } from 'src/modules/file.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { UserModule } from 'src/modules/user.module';
     }),
     UserModule,
     AuthModule,
+    FileModule,
   ],
   providers: [
     {
