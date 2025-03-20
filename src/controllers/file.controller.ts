@@ -74,9 +74,4 @@ export class FileController {
   async getFiles(): Promise<FileObject[]> {
     return this.fileService.getFiles();
   }
-
-  @Post('/upload-test')
-  testUpload(): { success: boolean } {
-    return { success: true };
-  }
 }

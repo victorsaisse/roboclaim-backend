@@ -17,8 +17,7 @@ export class FileService {
     }
 
     this.supabase = createClient(supabaseUrl, supabaseApiKey);
-    this.bucketName =
-      this.configService.get<string>('SUPABASE_BUCKET') || 'default-bucket';
+    this.bucketName = this.configService.get<string>('SUPABASE_BUCKET')!;
   }
 
   async uploadFile(
@@ -26,9 +25,7 @@ export class FileService {
     filePath: string,
   ): Promise<{ url: string; path: string } | null> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
       const fileBody = new File([file.buffer], file.originalname, {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         type: file.mimetype,
       });
 
