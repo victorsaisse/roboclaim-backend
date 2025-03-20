@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { FileObject } from '@supabase/storage-js';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as pdfParse from 'pdf-parse';
+import { createWorker } from 'tesseract.js';
 
 @Injectable()
 export class FileService {
@@ -71,7 +72,6 @@ export class FileService {
   }
 
   async getFiles(): Promise<FileObject[]> {
-    // get all files urls from supabase
     const { data, error } = await this.supabase.storage
       .from(this.bucketName)
       .list();
@@ -108,10 +108,40 @@ export class FileService {
         return pdfData.text;
       }
 
+      if (data.type === 'image/jpeg' || data.type === 'image/png') {
+        const arrayBuffer = await data.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const base64Image = buffer.toString('base64');
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+        const worker = await createWorker();
+
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          const {
+            data: { text },
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          } = await worker.recognize(`data:${data.type};base64,${base64Image}`);
+
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          await worker.terminate();
+
+          console.log('OCR text:', text);
+
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          return text;
+        } catch (ocrError) {
+          console.error('OCR Error:', ocrError);
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          await worker.terminate();
+          return 'OCR processing failed';
+        }
+      }
+
       return 'Unsupported file type';
     } catch (error) {
-      console.error('PDF processing error:', error);
-      return 'Failed to process PDF';
+      console.error('File extraction error:', error);
+      return 'Failed to extract file';
     }
   }
 }
