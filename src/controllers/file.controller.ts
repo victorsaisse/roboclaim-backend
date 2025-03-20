@@ -37,22 +37,29 @@ export class FileController {
       throw new BadRequestException('File is required');
     }
 
-    const fileName = uuidv4();
+    try {
+      const fileName = uuidv4();
+      const result = await this.fileService.uploadFile(file, fileName);
 
-    const result = await this.fileService.uploadFile(file, fileName);
+      if (!result) {
+        return {
+          success: false,
+          message: 'File upload failed',
+        };
+      }
 
-    if (!result) {
+      return {
+        success: true,
+        url: result.url,
+        path: result.path,
+      };
+    } catch (error) {
+      console.error('File upload error:', error);
       return {
         success: false,
-        message: 'File upload failed',
+        message: `File upload failed: ${error}`,
       };
     }
-
-    return {
-      success: true,
-      url: result.url,
-      path: result.path,
-    };
   }
 
   @Delete(':path')
