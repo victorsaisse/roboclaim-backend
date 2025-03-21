@@ -37,7 +37,6 @@ export class FileService {
     this.supabase = createClient(supabaseUrl, supabaseApiKey);
     this.bucketName = this.configService.get<string>('SUPABASE_BUCKET')!;
 
-    // Initialize OpenAI
     const openaiApiKey = this.configService.get<string>('OPENAI_API_KEY');
     if (!openaiApiKey) {
       console.warn('OpenAI API key is missing, summarization will not work');
@@ -141,20 +140,31 @@ export class FileService {
 
       if (error || !data) {
         console.error('Error downloading file:', error);
+        await this.updateFileWithError(
+          filePath,
+          'Failed to download file: ' + error?.message,
+        );
         return;
       }
 
       if (data.type === 'application/pdf') {
-        const arrayBuffer = await data.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
+        try {
+          const arrayBuffer = await data.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
 
-        const pdfData = await pdfParse(buffer);
+          const pdfData = await pdfParse(buffer);
 
-        console.log('[EXTRACTED] PDF', pdfData.text);
+          console.log('[EXTRACTED] PDF', pdfData.text);
 
-        await this.updateFileExtractedData(filePath, pdfData.text);
-        await this.generateSummary(filePath);
-
+          await this.updateFileExtractedData(filePath, pdfData.text);
+          await this.generateSummary(filePath);
+        } catch (pdfError) {
+          console.error('PDF parsing error:', pdfError);
+          await this.updateFileWithError(
+            filePath,
+            'PDF parsing error: ' + pdfError.message,
+          );
+        }
         return;
       }
 
@@ -176,14 +186,15 @@ export class FileService {
 
           await this.updateFileExtractedData(filePath, text);
           await this.generateSummary(filePath);
-
-          return;
         } catch (ocrError) {
           console.error('OCR Error:', ocrError);
-
+          await this.updateFileWithError(
+            filePath,
+            'OCR processing error: ' + ocrError.message,
+          );
           await worker.terminate();
-          return;
         }
+        return;
       }
 
       if (
@@ -192,32 +203,45 @@ export class FileService {
         data.type ===
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       ) {
-        const arrayBuffer = await data.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
+        try {
+          const arrayBuffer = await data.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
 
-        if (data.type === 'text/csv') {
-          const textData = buffer.toString('utf8');
-          const parsedData = await this.parseCSV(textData);
-          console.log('[EXTRACTED] CSV', parsedData);
+          if (data.type === 'text/csv') {
+            const textData = buffer.toString('utf8');
+            const parsedData = await this.parseCSV(textData);
+            console.log('[EXTRACTED] CSV', parsedData);
 
-          await this.updateFileExtractedData(filePath, parsedData);
-          await this.generateSummary(filePath);
+            await this.updateFileExtractedData(filePath, parsedData);
+            await this.generateSummary(filePath);
+          } else {
+            const parsedData = this.parseExcel(buffer);
+            console.log('[EXTRACTED] XLSX', parsedData);
 
-          return;
-        } else {
-          const parsedData = this.parseExcel(buffer);
-          console.log('[EXTRACTED] XLSX', parsedData);
-
-          await this.updateFileExtractedData(filePath, parsedData);
-          await this.generateSummary(filePath);
-
-          return;
+            await this.updateFileExtractedData(filePath, parsedData);
+            await this.generateSummary(filePath);
+          }
+        } catch (spreadsheetError) {
+          console.error('Spreadsheet parsing error:', spreadsheetError);
+          await this.updateFileWithError(
+            filePath,
+            'Spreadsheet parsing error: ' + spreadsheetError.message,
+          );
         }
+        return;
       }
 
+      await this.updateFileWithError(
+        filePath,
+        'Unsupported file type: ' + data.type,
+      );
       return;
     } catch (error) {
       console.error('File extraction error:', error);
+      await this.updateFileWithError(
+        filePath,
+        'File extraction error: ' + error.message,
+      );
       return;
     }
   }
@@ -288,7 +312,6 @@ export class FileService {
         return;
       }
 
-      // Get the file with extracted data from the database
       const file = await this.fileRepository.findOne({
         where: { path: filePath },
       });
@@ -298,7 +321,6 @@ export class FileService {
         return;
       }
 
-      // Call OpenAI to generate a summary
       const response = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
@@ -326,7 +348,6 @@ export class FileService {
 
       console.log('[SUMMARY]', summary);
 
-      // Update the file with the summary
       await this.fileRepository.update(
         { path: filePath },
         {
@@ -335,6 +356,23 @@ export class FileService {
       );
     } catch (error) {
       console.error('Error generating summary:', error);
+    }
+  }
+
+  private async updateFileWithError(
+    filePath: string,
+    errorMessage: string,
+  ): Promise<void> {
+    try {
+      await this.fileRepository.update(
+        { path: filePath },
+        {
+          status: 'failed',
+          errorLog: errorMessage,
+        },
+      );
+    } catch (updateError) {
+      console.error('Error updating file error log:', updateError);
     }
   }
 }
