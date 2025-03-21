@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { File } from 'src/entities/file.entity';
 import { User } from 'src/entities/user.entity';
 import { Repository } from 'typeorm';
 
@@ -35,5 +36,14 @@ export class UserService {
 
   async delete(id: string): Promise<void> {
     await this.userRepository.delete(id);
+  }
+
+  async getUserFiles(id: string): Promise<File[]> {
+    const userFiles = await this.userRepository.findOne({
+      where: { id },
+      relations: ['files'],
+    });
+
+    return userFiles?.files || [];
   }
 }

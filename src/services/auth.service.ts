@@ -44,7 +44,6 @@ export class AuthService {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       files: user.files,
-      logs: user.logs,
     };
   }
 
@@ -77,7 +76,6 @@ export class AuthService {
       createdAt: new Date(),
       updatedAt: new Date(),
       files: [],
-      logs: [],
     } as User;
 
     return this.userService.create(newUser);

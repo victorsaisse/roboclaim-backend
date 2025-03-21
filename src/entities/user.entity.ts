@@ -1,4 +1,3 @@
-import { AuditLog } from 'src/entities/audit-log.entity';
 import { File } from 'src/entities/file.entity';
 import {
   Column,
@@ -31,7 +30,4 @@ export class User {
 
   @OneToMany(() => File, (file) => file.user)
   files: File[];
-
-  @OneToMany(() => AuditLog, (log) => log.user)
-  logs: AuditLog[];
 }

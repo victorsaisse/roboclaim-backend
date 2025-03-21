@@ -33,14 +33,15 @@ export class FileController {
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
+    @Body('userId') userId: string,
   ): Promise<FileUploadResponse> {
     if (!file) {
       throw new BadRequestException('File is required');
     }
 
     try {
-      const fileName = uuidv4();
-      const result = await this.fileService.uploadFile(file, fileName);
+      const filePath = `${userId}/${uuidv4()}`;
+      const result = await this.fileService.uploadFile(file, filePath, userId);
 
       if (!result) {
         return {

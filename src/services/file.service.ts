@@ -1,23 +1,31 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
 import { FileObject } from '@supabase/storage-js';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as Papa from 'papaparse';
-import * as pdfParse from 'pdf-parse';
+import pdfParse from 'pdf-parse';
+import { File } from 'src/entities/file.entity';
 import { createWorker } from 'tesseract.js';
+import { Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
+import { UserService } from './user.service';
 
 @Injectable()
 export class FileService {
   private supabase: SupabaseClient;
   private bucketName: string;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    @InjectRepository(File)
+    private fileRepository: Repository<File>,
+    private userService: UserService,
+  ) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
     const supabaseApiKey = this.configService.get<string>('SUPABASE_API_KEY');
 
@@ -32,6 +40,7 @@ export class FileService {
   async uploadFile(
     file: Express.Multer.File,
     filePath: string,
+    userId: string,
   ): Promise<{ url: string; path: string } | null> {
     try {
       const { data, error } = await this.supabase.storage
@@ -49,6 +58,22 @@ export class FileService {
       const { data: urlData } = this.supabase.storage
         .from(this.bucketName)
         .getPublicUrl(filePath);
+
+      const user = await this.userService.findOne(userId);
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const fileToSave = this.fileRepository.create({
+        originalName: file.originalname,
+        url: urlData.publicUrl,
+        fileType: file.mimetype,
+        path: filePath,
+        user,
+      });
+
+      await this.fileRepository.save(fileToSave);
 
       return {
         url: urlData.publicUrl,

@@ -5,6 +5,7 @@ import {
   Entity,
   ManyToOne,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 
 @Entity()
@@ -12,17 +13,17 @@ export class File {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'text' })
+  url: string;
+
+  @Column({ type: 'text' })
+  path: string;
+
   @Column()
   originalName: string;
 
-  @Column({ unique: true })
-  storedName: string;
-
-  @Column({ type: 'enum', enum: ['pdf', 'csv', 'image', 'excel'] })
+  @Column({ type: 'text' })
   fileType: string;
-
-  @Column()
-  fileSize: number;
 
   @Column({
     type: 'enum',
@@ -35,13 +36,16 @@ export class File {
   extractedData: string;
 
   @Column({ type: 'text', nullable: true })
+  summary: string;
+
+  @Column({ type: 'text', nullable: true })
   errorLog: string;
 
   @CreateDateColumn()
-  uploadedAt: Date;
+  createdAt: Date;
 
-  @Column({ nullable: true })
-  processedAt: Date;
+  @UpdateDateColumn()
+  updatedAt: Date;
 
   @ManyToOne(() => User, (user) => user.files)
   user: User;
