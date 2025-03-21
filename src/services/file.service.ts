@@ -8,7 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { FileObject } from '@supabase/storage-js';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as Papa from 'papaparse';
-import pdfParse from 'pdf-parse';
+import * as pdfParse from 'pdf-parse';
 import { File } from 'src/entities/file.entity';
 import { createWorker } from 'tesseract.js';
 import { Repository } from 'typeorm';
@@ -116,7 +116,11 @@ export class FileService {
     return data;
   }
 
-  async extractData(filePath: string, userId: string): Promise<string> {
+  private sanitizeDataString(data: string): string {
+    return data.replace(/'/g, ' ');
+  }
+
+  async extractData(filePath: string, userId: string): Promise<void> {
     console.log('extractData', filePath, userId);
 
     try {
@@ -126,7 +130,7 @@ export class FileService {
 
       if (error || !data) {
         console.error('Error downloading file:', error);
-        return 'File download failed';
+        return;
       }
 
       if (data.type === 'application/pdf') {
@@ -135,9 +139,17 @@ export class FileService {
 
         const pdfData = await pdfParse(buffer);
 
-        console.log('pdfData', pdfData.text);
+        console.log('[EXTRACTED] PDF', pdfData.text);
 
-        return pdfData.text;
+        await this.fileRepository.update(
+          { path: filePath },
+          {
+            extractedData: this.sanitizeDataString(pdfData.text),
+            status: 'completed',
+          },
+        );
+
+        return;
       }
 
       if (data.type === 'image/jpeg' || data.type === 'image/png') {
@@ -154,14 +166,22 @@ export class FileService {
 
           await worker.terminate();
 
-          console.log('OCR text:', text);
+          console.log('[EXTRACTED] OCR', text);
 
-          return text;
+          await this.fileRepository.update(
+            { path: filePath },
+            {
+              extractedData: this.sanitizeDataString(text),
+              status: 'completed',
+            },
+          );
+
+          return;
         } catch (ocrError) {
           console.error('OCR Error:', ocrError);
 
           await worker.terminate();
-          return 'OCR processing failed';
+          return;
         }
       }
 
@@ -176,21 +196,38 @@ export class FileService {
 
         if (data.type === 'text/csv') {
           const textData = buffer.toString('utf8');
-          console.log('textData csv', textData);
+          const parsedData = await this.parseCSV(textData);
+          console.log('[EXTRACTED] CSV', parsedData);
 
-          return this.parseCSV(textData);
+          await this.fileRepository.update(
+            { path: filePath },
+            {
+              extractedData: this.sanitizeDataString(parsedData),
+              status: 'completed',
+            },
+          );
+
+          return;
         } else {
-          const textData = this.parseExcel(buffer);
-          console.log('textData xlsx', textData);
+          const parsedData = this.parseExcel(buffer);
+          console.log('[EXTRACTED] XLSX', parsedData);
 
-          return textData;
+          await this.fileRepository.update(
+            { path: filePath },
+            {
+              extractedData: this.sanitizeDataString(parsedData),
+              status: 'completed',
+            },
+          );
+
+          return;
         }
       }
 
-      return 'Unsupported file type';
+      return;
     } catch (error) {
       console.error('File extraction error:', error);
-      return 'Failed to extract file';
+      return;
     }
   }
 
