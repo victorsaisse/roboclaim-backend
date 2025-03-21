@@ -14,12 +14,13 @@ import { createWorker } from 'tesseract.js';
 import { Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { UserService } from './user.service';
+import { OpenAI } from 'openai';
 
 @Injectable()
 export class FileService {
   private supabase: SupabaseClient;
   private bucketName: string;
-
+  private openai: OpenAI;
   constructor(
     private configService: ConfigService,
     @InjectRepository(File)
@@ -35,6 +36,16 @@ export class FileService {
 
     this.supabase = createClient(supabaseUrl, supabaseApiKey);
     this.bucketName = this.configService.get<string>('SUPABASE_BUCKET')!;
+
+    // Initialize OpenAI
+    const openaiApiKey = this.configService.get<string>('OPENAI_API_KEY');
+    if (!openaiApiKey) {
+      console.warn('OpenAI API key is missing, summarization will not work');
+    } else {
+      this.openai = new OpenAI({
+        apiKey: openaiApiKey,
+      });
+    }
   }
 
   async uploadFile(
@@ -141,13 +152,8 @@ export class FileService {
 
         console.log('[EXTRACTED] PDF', pdfData.text);
 
-        await this.fileRepository.update(
-          { path: filePath },
-          {
-            extractedData: this.sanitizeDataString(pdfData.text),
-            status: 'completed',
-          },
-        );
+        await this.updateFileExtractedData(filePath, pdfData.text);
+        await this.generateSummary(filePath);
 
         return;
       }
@@ -168,13 +174,8 @@ export class FileService {
 
           console.log('[EXTRACTED] OCR', text);
 
-          await this.fileRepository.update(
-            { path: filePath },
-            {
-              extractedData: this.sanitizeDataString(text),
-              status: 'completed',
-            },
-          );
+          await this.updateFileExtractedData(filePath, text);
+          await this.generateSummary(filePath);
 
           return;
         } catch (ocrError) {
@@ -199,26 +200,16 @@ export class FileService {
           const parsedData = await this.parseCSV(textData);
           console.log('[EXTRACTED] CSV', parsedData);
 
-          await this.fileRepository.update(
-            { path: filePath },
-            {
-              extractedData: this.sanitizeDataString(parsedData),
-              status: 'completed',
-            },
-          );
+          await this.updateFileExtractedData(filePath, parsedData);
+          await this.generateSummary(filePath);
 
           return;
         } else {
           const parsedData = this.parseExcel(buffer);
           console.log('[EXTRACTED] XLSX', parsedData);
 
-          await this.fileRepository.update(
-            { path: filePath },
-            {
-              extractedData: this.sanitizeDataString(parsedData),
-              status: 'completed',
-            },
-          );
+          await this.updateFileExtractedData(filePath, parsedData);
+          await this.generateSummary(filePath);
 
           return;
         }
@@ -270,6 +261,80 @@ export class FileService {
     } catch (error) {
       console.error('Excel parse error:', error);
       throw new Error('Failed to parse Excel file');
+    }
+  }
+
+  private async updateFileExtractedData(
+    filePath: string,
+    data: string,
+  ): Promise<void> {
+    try {
+      await this.fileRepository.update(
+        { path: filePath },
+        {
+          extractedData: this.sanitizeDataString(data),
+          status: 'completed',
+        },
+      );
+    } catch (error) {
+      console.error('Error updating file:', error);
+    }
+  }
+
+  private async generateSummary(filePath: string): Promise<void> {
+    try {
+      if (!this.openai) {
+        console.warn('OpenAI not initialized, skipping summary generation');
+        return;
+      }
+
+      // Get the file with extracted data from the database
+      const file = await this.fileRepository.findOne({
+        where: { path: filePath },
+      });
+
+      if (!file || !file.extractedData) {
+        console.warn('No extracted data found for file', filePath);
+        return;
+      }
+
+      // Call OpenAI to generate a summary
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a document summarization assistant. Please provide a concise summary of the following document content in 3-5 sentences.',
+          },
+          {
+            role: 'user',
+            content: file.extractedData,
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 300,
+        top_p: 1,
+      });
+
+      const summary = response.choices[0].message.content?.trim();
+
+      if (!summary) {
+        console.warn('No summary generated for file', filePath);
+        return;
+      }
+
+      console.log('[SUMMARY]', summary);
+
+      // Update the file with the summary
+      await this.fileRepository.update(
+        { path: filePath },
+        {
+          summary,
+        },
+      );
+    } catch (error) {
+      console.error('Error generating summary:', error);
     }
   }
 }
