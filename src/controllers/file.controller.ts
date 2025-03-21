@@ -64,12 +64,12 @@ export class FileController {
     }
   }
 
-  @Delete(':path')
+  @Delete(':id')
   @UseGuards(JwtAuthGuard)
   async deleteFile(
-    @Param('path') path: string,
+    @Param('id') id: string,
   ): Promise<{ success: boolean; message: string }> {
-    const success = await this.fileService.deleteFile(path);
+    const success = await this.fileService.deleteFile(id);
 
     return {
       success,
@@ -86,11 +86,11 @@ export class FileController {
 
   @UseGuards(JwtAuthGuard)
   @Post('extract')
-  extract(
-    @Body('filePath') filePath: string,
-    @Body('userId') userId: string,
-  ): { success: boolean; message: string } {
-    void this.backgroundProcess(filePath, userId);
+  extract(@Body('filePath') filePath: string): {
+    success: boolean;
+    message: string;
+  } {
+    void this.backgroundProcess(filePath);
 
     return {
       success: true,
@@ -98,11 +98,8 @@ export class FileController {
     };
   }
 
-  private async backgroundProcess(
-    filePath: string,
-    userId: string,
-  ): Promise<void> {
-    await this.fileService.extractData(filePath, userId);
+  private async backgroundProcess(filePath: string): Promise<void> {
+    await this.fileService.extractData(filePath);
 
     return;
   }

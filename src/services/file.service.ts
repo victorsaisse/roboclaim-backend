@@ -95,18 +95,26 @@ export class FileService {
     }
   }
 
-  async deleteFile(filePath: string): Promise<boolean> {
+  async deleteFile(id: string): Promise<boolean> {
     try {
+      const file = await this.fileRepository.findOne({ where: { id } });
+
+      if (!file) {
+        throw new Error('File not found');
+      }
+
       const { error } = await this.supabase.storage
         .from(this.bucketName)
-        .remove([filePath]);
+        .remove([file.path]);
 
       if (error) {
         console.error('Error deleting file from Supabase:', error);
         return false;
       }
 
-      return true;
+      const deletedFile = await this.fileRepository.remove(file);
+
+      return !!deletedFile;
     } catch (error) {
       console.error('Error in file delete service:', error);
       return false;
@@ -130,9 +138,7 @@ export class FileService {
     return data.replace(/'/g, ' ');
   }
 
-  async extractData(filePath: string, userId: string): Promise<void> {
-    console.log('extractData', filePath, userId);
-
+  async extractData(filePath: string): Promise<void> {
     const startTime = Date.now();
 
     try {
@@ -155,8 +161,6 @@ export class FileService {
           const buffer = Buffer.from(arrayBuffer);
 
           const pdfData = await pdfParse(buffer);
-
-          console.log('[EXTRACTED] PDF', pdfData.text);
 
           await this.updateFileExtractedData(filePath, pdfData.text);
           await this.generateSummary(filePath, startTime);
@@ -184,8 +188,6 @@ export class FileService {
 
           await worker.terminate();
 
-          console.log('[EXTRACTED] OCR', text);
-
           await this.updateFileExtractedData(filePath, text);
           await this.generateSummary(filePath, startTime);
         } catch (ocrError) {
@@ -212,13 +214,11 @@ export class FileService {
           if (data.type === 'text/csv') {
             const textData = buffer.toString('utf8');
             const parsedData = await this.parseCSV(textData);
-            console.log('[EXTRACTED] CSV', parsedData);
 
             await this.updateFileExtractedData(filePath, parsedData);
             await this.generateSummary(filePath, startTime);
           } else {
             const parsedData = this.parseExcel(buffer);
-            console.log('[EXTRACTED] XLSX', parsedData);
 
             await this.updateFileExtractedData(filePath, parsedData);
             await this.generateSummary(filePath, startTime);
@@ -354,8 +354,6 @@ export class FileService {
         console.warn('No summary generated for file', filePath);
         return;
       }
-
-      console.log('[SUMMARY]', summary);
 
       const processingTime = Date.now() - startTime;
 
