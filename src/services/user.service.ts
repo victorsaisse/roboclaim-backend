@@ -9,6 +9,8 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(File)
+    private fileRepository: Repository<File>,
   ) {}
 
   async findAll(): Promise<User[]> {
@@ -45,5 +47,25 @@ export class UserService {
     });
 
     return userFiles?.files || [];
+  }
+
+  async getUserStats(id: string): Promise<
+    {
+      processingTime: number;
+      errorLog: string;
+    }[]
+  > {
+    const userStats = await this.fileRepository.find({
+      where: { user: { id } },
+      select: {
+        processingTime: true,
+        errorLog: true,
+      },
+    });
+
+    return userStats.map((file) => ({
+      processingTime: file.processingTime,
+      errorLog: file.errorLog,
+    }));
   }
 }

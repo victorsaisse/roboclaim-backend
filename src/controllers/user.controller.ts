@@ -46,4 +46,15 @@ export class UserController {
   getUserFiles(@Param('id') id: string): Promise<File[]> {
     return this.userService.getUserFiles(id);
   }
+
+  @Get(':id/stats')
+  @UseGuards(JwtAuthGuard)
+  getUserStats(@Param('id') id: string): Promise<
+    {
+      processingTime: number;
+      errorLog: string;
+    }[]
+  > {
+    return this.userService.getUserStats(id);
+  }
 }

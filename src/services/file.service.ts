@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FileObject } from '@supabase/storage-js';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { OpenAI } from 'openai';
 import * as Papa from 'papaparse';
 import * as pdfParse from 'pdf-parse';
 import { File } from 'src/entities/file.entity';
@@ -14,7 +15,6 @@ import { createWorker } from 'tesseract.js';
 import { Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { UserService } from './user.service';
-import { OpenAI } from 'openai';
 
 @Injectable()
 export class FileService {
@@ -133,6 +133,8 @@ export class FileService {
   async extractData(filePath: string, userId: string): Promise<void> {
     console.log('extractData', filePath, userId);
 
+    const startTime = Date.now();
+
     try {
       const { data, error } = await this.supabase.storage
         .from(this.bucketName)
@@ -157,7 +159,7 @@ export class FileService {
           console.log('[EXTRACTED] PDF', pdfData.text);
 
           await this.updateFileExtractedData(filePath, pdfData.text);
-          await this.generateSummary(filePath);
+          await this.generateSummary(filePath, startTime);
         } catch (pdfError) {
           console.error('PDF parsing error:', pdfError);
           await this.updateFileWithError(
@@ -185,7 +187,7 @@ export class FileService {
           console.log('[EXTRACTED] OCR', text);
 
           await this.updateFileExtractedData(filePath, text);
-          await this.generateSummary(filePath);
+          await this.generateSummary(filePath, startTime);
         } catch (ocrError) {
           console.error('OCR Error:', ocrError);
           await this.updateFileWithError(
@@ -213,13 +215,13 @@ export class FileService {
             console.log('[EXTRACTED] CSV', parsedData);
 
             await this.updateFileExtractedData(filePath, parsedData);
-            await this.generateSummary(filePath);
+            await this.generateSummary(filePath, startTime);
           } else {
             const parsedData = this.parseExcel(buffer);
             console.log('[EXTRACTED] XLSX', parsedData);
 
             await this.updateFileExtractedData(filePath, parsedData);
-            await this.generateSummary(filePath);
+            await this.generateSummary(filePath, startTime);
           }
         } catch (spreadsheetError) {
           console.error('Spreadsheet parsing error:', spreadsheetError);
@@ -305,7 +307,10 @@ export class FileService {
     }
   }
 
-  private async generateSummary(filePath: string): Promise<void> {
+  private async generateSummary(
+    filePath: string,
+    startTime: number,
+  ): Promise<void> {
     try {
       if (!this.openai) {
         console.warn('OpenAI not initialized, skipping summary generation');
@@ -318,6 +323,10 @@ export class FileService {
 
       if (!file || !file.extractedData) {
         console.warn('No extracted data found for file', filePath);
+        await this.updateFileWithError(
+          filePath,
+          'No extracted data found for file',
+        );
         return;
       }
 
@@ -348,10 +357,13 @@ export class FileService {
 
       console.log('[SUMMARY]', summary);
 
+      const processingTime = Date.now() - startTime;
+
       await this.fileRepository.update(
         { path: filePath },
         {
           summary,
+          processingTime,
         },
       );
     } catch (error) {

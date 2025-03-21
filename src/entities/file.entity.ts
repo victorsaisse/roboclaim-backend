@@ -47,6 +47,9 @@ export class File {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  @Column({ type: 'integer', default: 0 })
+  processingTime: number;
+
   @ManyToOne(() => User, (user) => user.files)
   user: User;
 }
