@@ -299,7 +299,7 @@ export class FileService {
         { path: filePath },
         {
           extractedData: this.sanitizeDataString(data),
-          status: 'completed',
+          status: 'processing',
         },
       );
     } catch (error) {
@@ -362,6 +362,7 @@ export class FileService {
         {
           summary,
           processingTime,
+          status: 'completed',
         },
       );
     } catch (error) {
