@@ -1,34 +1,57 @@
 # RoboClaim Backend
 
-## Description
+## Overview
 
-A NestJS application for processing PDFs.
+RoboClaim Backend is a NestJS application designed for processing and extracting data from documents.
+
+## Tech Stack
+
+- **Framework**: NestJS
+- **Runtime**: Node.js
+- **Containerization**: Docker
+
+## Project Structure
+
+```bash
+src/
+├── controllers/ # API route handlers that receive requests and return responses
+├── decorators/ # Custom decorators for route handling, parameter extraction, etc.
+├── entities/ # Database models/schemas
+├── guards/ # Authentication and authorization guards
+├── modules/ # Feature modules that organize related components
+├── services/ # Business logic and application services
+└── main.ts # Application entry point
+```
 
 ## Installation
 
-Important Setup Step:
+### Prerequisites
 
-Before running the application, make sure to rename the .env.template file to .env and fill in the required environment variables.
+- Node.js (version +18)
+- npm or yarn
+- Docker (optional, for containerized deployment)
 
-The application relies on these environment variables to function properly, so ensure all necessary values are configured correctly!
+### Environment Setup
 
-To install the application, run the following command:
+1. Rename `.env.template` to `.env`
+2. Configure all required environment variables:
+
+### Local Development
 
 ```bash
+# Install dependencies
 npm install
-```
 
-To start the application in development mode, use:
-
-```bash
+# Start development server
 npm run start:dev
 ```
 
-Docker Setup
-
-To build and run the application using Docker, execute the following commands:
+### Docker Deployment
 
 ```bash
+# Build the Docker image
 docker build --platform linux/amd64 -t roboclaim-backend .
+
+# Run the container
 docker run --rm -p 3001:3001 roboclaim-backend
 ```
