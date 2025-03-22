@@ -51,7 +51,8 @@ export class UserController {
     @Query('status') status?: string,
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: string,
-  ): Promise<File[]> {
+    @Query('page') page?: number,
+  ): Promise<{ files: File[]; total: number }> {
     return this.userService.getUserFiles(
       id,
       fileName,
@@ -59,6 +60,7 @@ export class UserController {
       status,
       sortBy,
       sortOrder,
+      page,
     );
   }
 

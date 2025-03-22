@@ -47,7 +47,11 @@ export class UserService {
     status?: string,
     sortBy?: string,
     sortOrder?: string,
-  ): Promise<File[]> {
+    page: number = 1,
+  ): Promise<{ files: File[]; total: number }> {
+    const limit = 2;
+    const skip = (page - 1) * limit;
+
     const queryBuilder = this.fileRepository
       .createQueryBuilder('file')
       .leftJoinAndSelect('file.user', 'user')
@@ -97,7 +101,11 @@ export class UserService {
     const order = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
     queryBuilder.orderBy(dbSortField, order);
 
-    return queryBuilder.getMany();
+    queryBuilder.take(limit).skip(skip);
+
+    const [files, total] = await queryBuilder.getManyAndCount();
+
+    return { files, total };
   }
 
   async getUserStats(id: string): Promise<
