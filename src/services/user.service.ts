@@ -68,11 +68,11 @@ export class UserService {
         queryBuilder.andWhere('file.fileType = :fileType', {
           fileType: 'application/pdf',
         });
-      } else if (fileType === 'png') {
+      } else if (fileType === 'image') {
         queryBuilder.andWhere('file.fileType = :fileType', {
           fileType: 'image/png',
         });
-      } else if (fileType === 'sheets') {
+      } else if (fileType === 'sheet') {
         queryBuilder.andWhere('file.fileType NOT IN (:...excludedTypes)', {
           excludedTypes: ['application/pdf', 'image/png'],
         });
