@@ -37,6 +37,8 @@ export class UserService {
   }
 
   async delete(id: string): Promise<void> {
+    await this.fileRepository.delete({ user: { id } });
+
     await this.userRepository.delete(id);
   }
 
