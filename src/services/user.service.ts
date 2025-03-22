@@ -120,6 +120,7 @@ export class UserService {
       select: {
         processingTime: true,
         errorLog: true,
+        fileType: true,
       },
     });
 
