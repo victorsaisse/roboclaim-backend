@@ -66,13 +66,13 @@ export class UserController {
 
   @Get(':id/stats')
   @UseGuards(JwtAuthGuard)
-  getUserStats(@Param('id') id: string): Promise<
-    {
+  getUserStats(@Param('id') id: string): Promise<{
+    chartData: { fileType: string; totalFiles: number }[];
+    userStats: {
       processingTime: number;
       errorLog: string;
-      chartData: { fileType: string; totalFiles: number }[];
-    }[]
-  > {
+    }[];
+  }> {
     return this.userService.getUserStats(id);
   }
 }

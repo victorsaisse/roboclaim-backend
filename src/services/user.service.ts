@@ -108,13 +108,13 @@ export class UserService {
     return { files, total };
   }
 
-  async getUserStats(id: string): Promise<
-    {
+  async getUserStats(id: string): Promise<{
+    chartData: { fileType: string; totalFiles: number }[];
+    userStats: {
       processingTime: number;
       errorLog: string;
-      chartData: { fileType: string; totalFiles: number }[];
-    }[]
-  > {
+    }[];
+  }> {
     const userStats = await this.fileRepository.find({
       where: { user: { id } },
       select: {
@@ -142,10 +142,12 @@ export class UserService {
       { fileType: 'Spreadsheets', totalFiles: totalSheetFiles },
     ];
 
-    return userStats.map((file) => ({
-      processingTime: file.processingTime,
-      errorLog: file.errorLog,
+    return {
+      userStats: userStats.map((file) => ({
+        processingTime: file.processingTime,
+        errorLog: file.errorLog,
+      })),
       chartData,
-    }));
+    };
   }
 }
