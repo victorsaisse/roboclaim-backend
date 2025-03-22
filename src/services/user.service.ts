@@ -49,7 +49,7 @@ export class UserService {
     sortOrder?: string,
     page: number = 1,
   ): Promise<{ files: File[]; total: number }> {
-    const limit = 2;
+    const limit = 10;
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.fileRepository
