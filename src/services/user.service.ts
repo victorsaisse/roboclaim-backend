@@ -112,6 +112,7 @@ export class UserService {
     {
       processingTime: number;
       errorLog: string;
+      chartData: { fileType: string; totalFiles: number }[];
     }[]
   > {
     const userStats = await this.fileRepository.find({
@@ -122,9 +123,29 @@ export class UserService {
       },
     });
 
+    const totalPdfFiles = userStats.filter(
+      (file) => file.fileType === 'application/pdf',
+    ).length;
+
+    const totalImageFiles = userStats.filter(
+      (file) => file.fileType === 'image/png',
+    ).length;
+
+    const totalSheetFiles = userStats.filter(
+      (file) =>
+        file.fileType !== 'application/pdf' && file.fileType !== 'image/png',
+    ).length;
+
+    const chartData = [
+      { fileType: 'PDFs', totalFiles: totalPdfFiles },
+      { fileType: 'Images', totalFiles: totalImageFiles },
+      { fileType: 'Spreadsheets', totalFiles: totalSheetFiles },
+    ];
+
     return userStats.map((file) => ({
       processingTime: file.processingTime,
       errorLog: file.errorLog,
+      chartData,
     }));
   }
 }

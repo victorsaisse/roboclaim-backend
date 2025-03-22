@@ -70,6 +70,7 @@ export class UserController {
     {
       processingTime: number;
       errorLog: string;
+      chartData: { fileType: string; totalFiles: number }[];
     }[]
   > {
     return this.userService.getUserStats(id);
