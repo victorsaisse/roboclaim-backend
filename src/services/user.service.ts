@@ -40,13 +40,64 @@ export class UserService {
     await this.userRepository.delete(id);
   }
 
-  async getUserFiles(id: string): Promise<File[]> {
-    const userFiles = await this.userRepository.findOne({
-      where: { id },
-      relations: ['files'],
-    });
+  async getUserFiles(
+    id: string,
+    fileName?: string,
+    fileType?: string,
+    status?: string,
+    sortBy?: string,
+    sortOrder?: string,
+  ): Promise<File[]> {
+    const queryBuilder = this.fileRepository
+      .createQueryBuilder('file')
+      .leftJoinAndSelect('file.user', 'user')
+      .where('user.id = :userId', { userId: id });
 
-    return userFiles?.files || [];
+    if (fileName) {
+      queryBuilder.andWhere('LOWER(file.originalName) LIKE LOWER(:fileName)', {
+        fileName: `%${fileName}%`,
+      });
+    }
+
+    if (fileType) {
+      if (fileType === 'pdf') {
+        queryBuilder.andWhere('file.fileType = :fileType', {
+          fileType: 'application/pdf',
+        });
+      } else if (fileType === 'png') {
+        queryBuilder.andWhere('file.fileType = :fileType', {
+          fileType: 'image/png',
+        });
+      } else if (fileType === 'sheets') {
+        queryBuilder.andWhere('file.fileType NOT IN (:...excludedTypes)', {
+          excludedTypes: ['application/pdf', 'image/png'],
+        });
+      }
+    }
+
+    if (status) {
+      queryBuilder.andWhere('file.status = :status', { status });
+    }
+
+    let dbSortField = 'file.createdAt';
+    if (sortBy) {
+      switch (sortBy) {
+        case 'name':
+          dbSortField = 'file.originalName';
+          break;
+        case 'date':
+          dbSortField = 'file.createdAt';
+          break;
+        case 'processingTime':
+          dbSortField = 'file.processingTime';
+          break;
+      }
+    }
+
+    const order = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+    queryBuilder.orderBy(dbSortField, order);
+
+    return queryBuilder.getMany();
   }
 
   async getUserStats(id: string): Promise<

@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { Role } from 'src/decorators/roles.decorator';
@@ -43,8 +44,22 @@ export class UserController {
 
   @Get(':id/files')
   @UseGuards(JwtAuthGuard)
-  getUserFiles(@Param('id') id: string): Promise<File[]> {
-    return this.userService.getUserFiles(id);
+  getUserFiles(
+    @Param('id') id: string,
+    @Query('fileName') fileName?: string,
+    @Query('fileType') fileType?: string,
+    @Query('status') status?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: string,
+  ): Promise<File[]> {
+    return this.userService.getUserFiles(
+      id,
+      fileName,
+      fileType,
+      status,
+      sortBy,
+      sortOrder,
+    );
   }
 
   @Get(':id/stats')
